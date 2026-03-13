@@ -1,18 +1,24 @@
-# --- Communication et API ---
-requests==2.31.0           # Pour envoyer les données vers GPT-5.4
-python-dotenv==1.0.1       # Pour gérer vos clés d'API en sécurité
+# ─── Communication & Configuration ───────────────────────────────────────────
+requests==2.31.0
+python-dotenv==1.0.0
+httpx==0.27.0
 
-# --- Analyse et Structure des données ---
-pydantic==2.6.4            # Pour forcer le format JSON et valider les données
-json-repair==0.25.0        # Utile si le LLM renvoie un JSON légèrement mal formé
+# ─── Validation & JSON ────────────────────────────────────────────────────────
+pydantic==2.7.1
+json-repair==0.25.2
 
-# --- Audio et Streaming (RPi 5) ---
-pyaudio==0.2.14            # Pour la capture micro en temps réel
-numpy==1.26.4              # Requis pour le traitement de signal audio
+# ─── Audio & Transcription ────────────────────────────────────────────────────
+pyaudio==0.2.14
+numpy==1.26.4
 
-# --- Automatisation Web (Le "Robot" de facturation) ---
-playwright==1.42.0         # Pour naviguer sur les logiciels non-API
-playwright-python==1.42.0
+# ─── Automatisation Web (Playwright) ─────────────────────────────────────────
+playwright==1.44.0
 
-# --- Utilitaires ---
-loguru==0.7.2              # Pour une gestion propre des logs (indispensable pour le débug)
+# ─── Logging ──────────────────────────────────────────────────────────────────
+loguru==0.7.2
+
+# ─── Stockage local ───────────────────────────────────────────────────────────
+# SQLite est inclus dans Python (pas de package requis)
+
+# ─── Utilitaires ──────────────────────────────────────────────────────────────
+python-dateutil==2.9.0
