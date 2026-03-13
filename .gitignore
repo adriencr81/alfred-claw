@@ -1,0 +1,13 @@
+# Environnement et secrets
+.env
+__pycache__/
+venv/
+
+# Données locales et base de données
+*.sqlite
+*.db
+storage/*.json
+
+# Logs et backups
+*.log
+backup/
