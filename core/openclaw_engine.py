@@ -64,7 +64,7 @@ class OpenClawEngine:
             response = httpx.post(
                 f"{self.ollama_url}/api/generate",
                 json=payload,
-                timeout=30.0,
+                timeout=120.0,
             )
             response.raise_for_status()
             raw = response.json().get("response", "")
