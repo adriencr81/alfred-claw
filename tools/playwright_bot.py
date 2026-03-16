@@ -27,11 +27,9 @@ from loguru import logger
 from playwright.sync_api import Playwright, sync_playwright, Page, BrowserContext
 
 # ── Configuration ──────────────────────────────────────────────────────────────
-JOBBER_URL    = "https://secure.getjobber.com"
-JOBBER_EMAIL  = os.getenv("JOBBER_EMAIL", "")
-JOBBER_PASS   = os.getenv("JOBBER_PASS", "")
-SESSION_FILE  = Path("storage/jobber_session.json")
-HEADLESS      = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
+JOBBER_URL   = "https://secure.getjobber.com"
+SESSION_FILE = Path("storage/jobber_session.json")
+HEADLESS     = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
 
 TIMEOUT_COURT = 8_000   # ms — pour les éléments rapides
 TIMEOUT_LONG  = 20_000  # ms — pour les navigations
@@ -42,55 +40,34 @@ class JobberBot:
 
     # ── Authentification & session ─────────────────────────────────────────────
 
-    def _get_context(self, playwright: Playwright) -> tuple[Any, BrowserContext]:
-        """Lance le navigateur. Réutilise la session si disponible."""
-        browser = playwright.chromium.launch(headless=HEADLESS)
-
-        # Charger la session existante si disponible
-        if SESSION_FILE.exists():
-            logger.debug("[Jobber] Chargement session existante")
-            context = browser.new_context(storage_state=str(SESSION_FILE))
-        else:
-            context = browser.new_context()
-
-        return browser, context
-
-    def _login(self, page: Page) -> None:
-        """Se connecte à Jobber et sauvegarde la session."""
-        logger.info("[Jobber] Connexion à Jobber...")
-        page.goto(f"{JOBBER_URL}/login", wait_until="networkidle")
-
-        # Remplir les credentials
-        page.get_by_label("Email").fill(JOBBER_EMAIL)
-        page.get_by_label("Password").fill(JOBBER_PASS)
-        page.get_by_role("button", name="Log in").click()
-
-        # Attendre le dashboard
-        page.wait_for_url(f"{JOBBER_URL}/**", timeout=TIMEOUT_LONG)
-        page.wait_for_load_state("networkidle")
-
-        # Sauvegarder la session (cookies + localStorage)
-        SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
-        page.context.storage_state(path=str(SESSION_FILE))
-        logger.success("[Jobber] ✅ Connecté et session sauvegardée")
-
     def _get_page(self, playwright: Playwright) -> tuple[Any, BrowserContext, Page]:
         """
-        Retourne une page authentifiée.
-        Si la session est expirée, se reconnecte automatiquement.
+        Retourne une page authentifiée via la session sauvegardée.
+        Si la session est absente ou expirée, lève une erreur claire.
+        → Lancer tools/jobber_setup_session.py pour initialiser la session.
         """
-        browser, context = self._get_context(playwright)
-        page = context.new_page()
+        if not SESSION_FILE.exists():
+            raise RuntimeError(
+                "Session Jobber introuvable. "
+                "Lance d'abord : python tools/jobber_setup_session.py"
+            )
 
-        # Vérifier si la session est valide
+        browser = playwright.chromium.launch(headless=HEADLESS)
+        context = browser.new_context(storage_state=str(SESSION_FILE))
+        page    = context.new_page()
+
+        # Vérifier que la session est toujours valide
         page.goto(f"{JOBBER_URL}/home", wait_until="networkidle")
 
         if "login" in page.url or "sign_in" in page.url:
-            logger.info("[Jobber] Session expirée — reconnexion")
+            browser.close()
             SESSION_FILE.unlink(missing_ok=True)
-            self._login(page)
+            raise RuntimeError(
+                "Session Jobber expirée. "
+                "Relance : python tools/jobber_setup_session.py"
+            )
 
-        logger.debug(f"[Jobber] Page prête — URL: {page.url}")
+        logger.debug(f"[Jobber] Session valide — URL: {page.url}")
         return browser, context, page
 
     # ── Client ─────────────────────────────────────────────────────────────────
