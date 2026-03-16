@@ -30,7 +30,7 @@ def main():
     )
     agent = FacturationAgent(db=db)
     whisper = WhisperStream(
-        whisper_bin="whisper-cpp",
+        whisper_bin=os.getenv("WHISPER_BIN", "/home/adrien/whisper.cpp/build/bin/whisper-cli"),
         model_path=f"models/ggml-{os.getenv('WHISPER_MODEL','small')}.bin",
     )
 
