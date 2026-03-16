@@ -173,10 +173,23 @@ class JobberBot:
                 # ── Client (autocomplete) ──────────────────────────────────────
                 client_trouve = self._chercher_client(page, client)
                 if not client_trouve:
-                    # Créer le client à la volée si introuvable
+                    # Créer le client dans un onglet séparé du même contexte
                     logger.info(f"[Jobber] Création du client '{client}' à la volée")
-                    page.get_by_role("option", name="Add client").click()
-                    time.sleep(1)
+                    parties = client.strip().split(" ", 1)
+                    client_page = context.new_page()
+                    client_page.goto(f"{JOBBER_URL}/clients/new", wait_until="networkidle")
+                    client_page.get_by_label("First name").fill(parties[0])
+                    if len(parties) > 1:
+                        client_page.get_by_label("Last name").fill(parties[1])
+                    client_page.get_by_role("button", name="Save client").click()
+                    client_page.wait_for_load_state("networkidle")
+                    client_page.close()
+                    logger.success(f"[Jobber] ✅ Client '{client}' créé")
+
+                    # Revenir au formulaire job et rechercher le client nouvellement créé
+                    page.goto(f"{JOBBER_URL}/jobs/new", wait_until="networkidle")
+                    page.get_by_label("Title").fill(titre_job)
+                    self._chercher_client(page, client)
 
                 # ── Lignes (line items) ────────────────────────────────────────
                 lignes = data.get("lignes") or [self._ligne_depuis_data(data)]
@@ -312,3 +325,7 @@ class JobberBot:
 
     def creer_commande(self, data: dict[str, Any]) -> bool:
         return self.creer_job(data) is not None
+
+
+# Alias de rétrocompatibilité — FacturationAgent importe PlaywrightBot
+PlaywrightBot = JobberBot
