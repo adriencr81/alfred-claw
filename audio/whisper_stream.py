@@ -20,7 +20,8 @@ import pyaudio
 from loguru import logger
 
 # ─── Paramètres audio ─────────────────────────────────────────────────────────
-SAMPLE_RATE = 16_000       # Hz — requis par Whisper
+SAMPLE_RATE = 44_100       # Hz — taux natif du micro USB (rééchantillonné à 16k pour Whisper)
+WHISPER_RATE = 16_000      # Hz — requis par Whisper
 CHANNELS = 1               # Mono
 FORMAT = pyaudio.paInt16   # 16 bits
 CHUNK = 1_024              # Taille du buffer par lecture
@@ -75,9 +76,8 @@ class WhisperStream:
 
         stream.stop_stream()
         stream.close()
-        audio.terminate()
 
-        # Sauvegarde dans un fichier WAV temporaire
+        # Sauvegarde dans un fichier WAV temporaire (avant terminate)
         tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
         with wave.open(tmp.name, "wb") as wf:
             wf.setnchannels(CHANNELS)
@@ -85,8 +85,19 @@ class WhisperStream:
             wf.setframerate(SAMPLE_RATE)
             wf.writeframes(b"".join(frames))
 
-        logger.debug(f"[Whisper] Audio sauvegardé : {tmp.name}")
-        return Path(tmp.name)
+        audio.terminate()
+
+        # Rééchantillonnage 44100 → 16000 Hz via ffmpeg (requis par Whisper)
+        wav_orig = Path(tmp.name)
+        wav_16k = wav_orig.with_suffix(".16k.wav")
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(wav_orig), "-ar", str(WHISPER_RATE), str(wav_16k)],
+            capture_output=True,
+        )
+        wav_orig.unlink(missing_ok=True)
+
+        logger.debug(f"[Whisper] Audio rééchantillonné : {wav_16k}")
+        return wav_16k
 
     # ── Transcription via whisper.cpp ─────────────────────────────────────────
     def transcrire(self, wav_path: Path) -> str:
