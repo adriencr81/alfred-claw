@@ -53,7 +53,7 @@ class SyncManager:
     def _cycle_sync(self) -> None:
         """Un cycle complet de synchronisation."""
         if not self._est_connecte():
-            logger.debug("[Sync] Serveur central non accessible — retry dans {SYNC_INTERVAL}s")
+            logger.debug(f"[Sync] Serveur central non accessible — retry dans {SYNC_INTERVAL}s")
             return
 
         commandes = self.db.lire_en_attente()

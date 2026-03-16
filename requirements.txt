@@ -22,3 +22,6 @@ loguru==0.7.2
 
 # ─── Utilitaires ──────────────────────────────────────────────────────────────
 python-dateutil==2.9.0
+
+# ─── OpenAI (utilisé par le serveur central) ──────────────────────────────────
+openai==1.30.1
