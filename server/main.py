@@ -28,7 +28,10 @@ from json_repair import repair_json
 load_dotenv()
 
 app = FastAPI(title="Alfred Central Server", version="1.0.0")
-client_openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client_openai = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
+)
 GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
 
 
