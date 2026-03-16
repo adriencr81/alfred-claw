@@ -25,7 +25,7 @@ WHISPER_RATE = 16_000      # Hz — requis par Whisper
 CHANNELS = 1               # Mono
 FORMAT = pyaudio.paInt16   # 16 bits
 CHUNK = 1_024              # Taille du buffer par lecture
-SILENCE_THRESHOLD = 500    # Amplitude RMS en-dessous = silence
+SILENCE_THRESHOLD = 800    # Amplitude RMS en-dessous = silence
 SILENCE_DURATION = 1.5     # Secondes de silence pour arrêter l'enregistrement
 MAX_DURATION = 30          # Secondes max d'enregistrement
 
