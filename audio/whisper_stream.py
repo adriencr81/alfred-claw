@@ -10,12 +10,11 @@ Pipeline de capture audio et transcription via whisper.cpp.
 
 from __future__ import annotations
 
+import signal
 import subprocess
 import tempfile
 import wave
 from pathlib import Path
-
-import time
 
 import numpy as np
 import pyaudio
@@ -59,26 +58,32 @@ class WhisperStream:
         silent_chunks = 0
         max_silent_chunks = int(SILENCE_DURATION * SAMPLE_RATE / CHUNK)
         max_chunks = int(MAX_DURATION * SAMPLE_RATE / CHUNK)
-        deadline = time.time() + MAX_DURATION
 
-        for _ in range(max_chunks):
-            if time.time() > deadline:
-                logger.info("[Whisper] ⏱️ Durée max atteinte — fin de l'enregistrement")
-                break
-            data = stream.read(CHUNK, exception_on_overflow=False)
-            frames.append(data)
+        def _alarm_handler(signum, frame):
+            raise TimeoutError("Durée max atteinte")
 
-            # Calcul du niveau RMS pour détecter le silence
-            audio_array = np.frombuffer(data, dtype=np.int16).astype(np.float32)
-            rms = np.sqrt(np.mean(audio_array**2)) if len(audio_array) > 0 else 0
+        signal.signal(signal.SIGALRM, _alarm_handler)
+        signal.alarm(MAX_DURATION)
 
-            if rms < SILENCE_THRESHOLD:
-                silent_chunks += 1
-                if silent_chunks >= max_silent_chunks and len(frames) > max_silent_chunks:
-                    logger.info("[Whisper] ✅ Silence détecté — fin de l'enregistrement")
-                    break
-            else:
-                silent_chunks = 0
+        try:
+            for _ in range(max_chunks):
+                data = stream.read(CHUNK, exception_on_overflow=False)
+                frames.append(data)
+
+                audio_array = np.frombuffer(data, dtype=np.int16).astype(np.float32)
+                rms = np.sqrt(np.mean(audio_array**2)) if len(audio_array) > 0 else 0
+
+                if rms < SILENCE_THRESHOLD:
+                    silent_chunks += 1
+                    if silent_chunks >= max_silent_chunks and len(frames) > max_silent_chunks:
+                        logger.info("[Whisper] ✅ Silence détecté — fin de l'enregistrement")
+                        break
+                else:
+                    silent_chunks = 0
+        except TimeoutError:
+            logger.info("[Whisper] ⏱️ Durée max atteinte — fin de l'enregistrement")
+        finally:
+            signal.alarm(0)
 
         stream.stop_stream()
         stream.close()
@@ -117,7 +122,7 @@ class WhisperStream:
             self.whisper_bin,
             "-m", self.model_path,
             "-f", str(wav_path),
-            "-l", "fr",        # Langue française
+            "-l", "en",        # Langue anglaise
             "--no-timestamps",
             "-otxt",           # Sortie texte brut
             "-of", str(wav_path.with_suffix("")),  # Fichier de sortie
