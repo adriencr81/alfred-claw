@@ -15,6 +15,8 @@ import tempfile
 import wave
 from pathlib import Path
 
+import time
+
 import numpy as np
 import pyaudio
 from loguru import logger
@@ -27,7 +29,7 @@ FORMAT = pyaudio.paInt16   # 16 bits
 CHUNK = 1_024              # Taille du buffer par lecture
 SILENCE_THRESHOLD = 800    # Amplitude RMS en-dessous = silence
 SILENCE_DURATION = 1.5     # Secondes de silence pour arrêter l'enregistrement
-MAX_DURATION = 30          # Secondes max d'enregistrement
+MAX_DURATION = 10          # Secondes max d'enregistrement
 
 
 class WhisperStream:
@@ -57,8 +59,12 @@ class WhisperStream:
         silent_chunks = 0
         max_silent_chunks = int(SILENCE_DURATION * SAMPLE_RATE / CHUNK)
         max_chunks = int(MAX_DURATION * SAMPLE_RATE / CHUNK)
+        deadline = time.time() + MAX_DURATION
 
         for _ in range(max_chunks):
+            if time.time() > deadline:
+                logger.info("[Whisper] ⏱️ Durée max atteinte — fin de l'enregistrement")
+                break
             data = stream.read(CHUNK, exception_on_overflow=False)
             frames.append(data)
 
