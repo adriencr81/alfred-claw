@@ -45,8 +45,11 @@ def main():
             input(">>> Appuyez sur Entrée pour parler...")
             texte = whisper.ecouter_et_transcrire()
             if texte.strip():
-                cmd_id, commande = engine.traiter(texte)
-                logger.info(f"Commande #{cmd_id} sauvegardée : {commande}")
+                try:
+                    cmd_id, commande = engine.traiter(texte)
+                    logger.info(f"Commande #{cmd_id} sauvegardée : {commande}")
+                except Exception as e:
+                    logger.warning(f"Commande ignorée ({e}) — réessayez")
     except KeyboardInterrupt:
         logger.info("Alfred arrêté.")
         sync.arreter()

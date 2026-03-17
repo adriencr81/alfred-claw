@@ -122,10 +122,11 @@ class WhisperStream:
             self.whisper_bin,
             "-m", self.model_path,
             "-f", str(wav_path),
-            "-l", "en",        # Langue anglaise
+            "-l", "en",
+            "--prompt", "Alfred, create a quote. Solar panels for Johnson. Three panels. Create invoice.",
             "--no-timestamps",
-            "-otxt",           # Sortie texte brut
-            "-of", str(wav_path.with_suffix("")),  # Fichier de sortie
+            "-otxt",
+            "-of", str(wav_path.with_suffix("")),
         ]
 
         try:
