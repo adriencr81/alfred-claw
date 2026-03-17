@@ -226,6 +226,111 @@ class JobberBot:
             logger.warning(f"[Jobber] Impossible de créer le client via modale : {e2}")
             return False
 
+    # ── Quote (flow démo HN) ────────────────────────────────────────────────────
+
+    def creer_quote(self, data: dict[str, Any]) -> str | None:
+        """
+        Crée un Quote dans Jobber via /quotes/new.
+        Flow démo : "Alfred, create a quote — 3 solar panels for Johnson."
+          1. Cherche client "Johnson" → sélectionne Mike Johnson
+          2. Tape "Solar Panel" → sélectionne depuis catalogue → prix 250€ auto
+          3. Quantity = 3 → Total 750€ calculé automatiquement
+
+        data attendu :
+          - client           : nom partiel (ex: "Johnson")
+          - reference_produit: nom produit (ex: "Solar Panel")
+          - quantite         : quantité (ex: 3)
+        """
+        client  = data.get("client", "")
+        produit = data.get("reference_produit") or data.get("item", "Solar Panel")
+        qty     = int(data.get("quantite", 1))
+        logger.info(f"[Jobber] Création quote : {qty}x '{produit}' pour {client}")
+
+        try:
+            with sync_playwright() as p:
+                browser, context, page, is_cdp = self._get_page(p)
+
+                page.goto(f"{JOBBER_URL}/quotes/new", wait_until="domcontentloaded")
+                page.wait_for_load_state("networkidle", timeout=15_000)
+
+                # ── Client (autocomplete) ──────────────────────────────────────
+                self._chercher_client(page, client)
+
+                # ── Produit — sélection depuis le catalogue ────────────────────
+                # Cliquer le champ Name du premier line item
+                nom_field = page.locator('[aria-label="Name"], [placeholder="Name"]').first
+                try:
+                    nom_field.wait_for(timeout=TIMEOUT_LONG)
+                except Exception:
+                    # Fallback : chercher par label
+                    nom_field = page.get_by_label("Name").first
+
+                nom_field.click()
+                nom_field.fill("")
+                nom_field.press_sequentially(produit, delay=60)
+                time.sleep(1.5)  # Attendre le dropdown catalogue
+
+                # Sélectionner le produit dans le dropdown (vrai clic souris)
+                coords = page.evaluate("""(nomProduit) => {
+                    const options = document.querySelectorAll('[role="option"]');
+                    for (const opt of options) {
+                        const rect = opt.getBoundingClientRect();
+                        if (rect.height <= 0) continue;
+                        const text = (opt.innerText || '').toLowerCase();
+                        if (text.includes('create new item')) continue;
+                        if (text.toLowerCase().includes(nomProduit.toLowerCase())) {
+                            return { found: true,
+                                     x: rect.left + rect.width / 2,
+                                     y: rect.top + rect.height / 2,
+                                     text: opt.innerText.substring(0, 60) };
+                        }
+                    }
+                    return { found: false };
+                }""", produit)
+
+                if coords.get("found"):
+                    page.mouse.click(coords["x"], coords["y"])
+                    logger.debug(f"[Quote] Produit sélectionné : {coords.get('text')}")
+                    time.sleep(0.5)
+                else:
+                    logger.warning(f"[Quote] Produit '{produit}' non trouvé dans catalogue — saisi en brut")
+
+                # ── Quantity ───────────────────────────────────────────────────
+                # Le prix est auto-rempli depuis le catalogue → on change juste la quantité
+                qty_field = page.get_by_label("Quantity").first
+                qty_field.click()
+                page.keyboard.press("Control+a")
+                qty_field.press_sequentially(str(qty))
+                page.keyboard.press("Tab")
+                time.sleep(0.5)
+
+                # ── Sauvegarde ─────────────────────────────────────────────────
+                page.get_by_role("button", name="Save Quote").click()
+                try:
+                    page.wait_for_url(
+                        lambda url: "/quotes/" in url and "new" not in url,
+                        timeout=15_000,
+                    )
+                except Exception:
+                    page.wait_for_load_state("domcontentloaded", timeout=10_000)
+
+                quote_url = page.url
+                logger.success(f"[Jobber] ✅ Quote créé : {quote_url}")
+
+                context.storage_state(path=str(SESSION_FILE))
+                keep_open = int(os.getenv("PLAYWRIGHT_KEEP_OPEN_SECONDS", "0"))
+                if keep_open > 0:
+                    time.sleep(keep_open)
+                if is_cdp:
+                    page.close()
+                else:
+                    browser.close()
+                return quote_url
+
+        except Exception as e:
+            logger.error(f"[Jobber] ❌ Erreur création quote : {e}")
+            return None
+
     # ── Job ────────────────────────────────────────────────────────────────────
 
     def creer_job(self, data: dict[str, Any]) -> str | None:
@@ -396,7 +501,12 @@ class JobberBot:
         action = data.get("action", "ajouter_devis")
         logger.info(f"[Jobber] Action : {action} — client : {data.get('client')}")
 
-        if action in ("ajouter_devis", "modifier_devis", "ajouter_commande"):
+        if action in ("ajouter_devis", "modifier_devis"):
+            # Flow démo HN : Quote avec sélection depuis catalogue
+            quote_url = self.creer_quote(data)
+            return quote_url is not None
+
+        elif action == "ajouter_commande":
             job_url = self.creer_job(data)
             return job_url is not None
 
