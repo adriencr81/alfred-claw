@@ -270,23 +270,42 @@ class JobberBot:
                         page.get_by_role("button", name="Add Line Item").click()
                         time.sleep(0.5)
 
-                    # Remplir la nth ligne
-                    page.get_by_label("Name").nth(idx).fill(ligne["nom"])
-                    page.get_by_label("Quantity").nth(idx).fill(str(ligne["quantite"]))
+                    # Name — le champ name a un twin hidden, mais le visible a bien name=lineItems.X.name
+                    # Il ouvre aussi un autocomplete → Escape pour le fermer
+                    page.locator(f'[name="lineItems.{idx}.name"]').fill(ligne["nom"])
+                    page.keyboard.press("Escape")
+                    time.sleep(0.3)
+
+                    # Quantity / Unit price — React Aria NumberFields :
+                    # click focus → Ctrl+A → press_sequentially (vrais keydown/keyup) → Tab blur
+                    # keyboard.type() utilise Input.insertText (pas de keydown) → ignoré par React Aria
+                    qty = page.get_by_label("Quantity").nth(idx)
+                    qty.click()
+                    page.keyboard.press("Control+a")
+                    qty.press_sequentially(str(int(ligne["quantite"])))
+                    page.keyboard.press("Tab")
 
                     if ligne.get("prix", 0) > 0:
-                        page.get_by_label("Unit price").nth(idx).fill(str(ligne["prix"]))
+                        prix = page.get_by_label("Unit price").nth(idx)
+                        prix.click()
+                        page.keyboard.press("Control+a")
+                        prix.press_sequentially(str(int(ligne["prix"])))
+                        page.keyboard.press("Tab")
 
                     if ligne.get("description"):
                         page.get_by_label("Description").nth(idx).fill(ligne["description"])
 
                 # ── Sauvegarde ─────────────────────────────────────────────────
                 page.get_by_role("button", name="Save Job").click()
-                # Attendre que l'URL change (le job obtient un ID réel)
+                # Jobber redirige vers /work_orders/<id> après sauvegarde
                 try:
-                    page.wait_for_url(lambda url: "/jobs/new" not in url, timeout=15_000)
+                    page.wait_for_url(
+                        lambda url: "/work_orders/" in url or ("/jobs/" in url and "new" not in url),
+                        timeout=15_000,
+                    )
                 except Exception:
-                    pass  # Si pas de redirect, on prend l'URL courante
+                    # Fallback : attendre la fin du chargement
+                    page.wait_for_load_state("domcontentloaded", timeout=10_000)
 
                 job_url = page.url
                 logger.success(f"[Jobber] ✅ Job créé : {job_url}")
