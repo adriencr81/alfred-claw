@@ -122,6 +122,9 @@ Réponds UNIQUEMENT avec du JSON pur, sans texte autour :
         raw = response.choices[0].message.content or ""
         logger.debug(f"[Enrichir] Réponse GPT brute : {raw}")
 
+        if not raw.strip():
+            raise ValueError("Réponse LLM vide")
+
         repaired = repair_json(raw)
         data = json.loads(repaired)
         enrichie = CommandeEnrichie(**data)

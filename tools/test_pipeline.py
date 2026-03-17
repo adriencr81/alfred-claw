@@ -64,7 +64,7 @@ def check_session() -> bool:
 def enrichir(commande: dict) -> dict | None:
     logger.info(f"[Test] Enrichissement GPT pour : {commande['client']} — {commande['item']}")
     try:
-        r = httpx.post(f"{SERVER_URL}/enrichir", json=commande, timeout=30)
+        r = httpx.post(f"{SERVER_URL}/enrichir", json=commande, timeout=120)
         r.raise_for_status()
         enrichie = r.json()
         logger.success(
