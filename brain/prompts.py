@@ -35,11 +35,16 @@ EXEMPLES :
 - "Ajoute 4 panneaux solaires pour Dupont" →
   {"client":"Dupont","item":"panneau solaire","quantite":4,"action":"ajouter_devis","notes":""}
 
+- "Create a quote. Three solar panels for Johnson." →
+  {"client":"Johnson","item":"Solar Panel","quantite":3,"action":"ajouter_devis","notes":""}
+
+- "Create a quote for Johnson, 3 solar panels." →
+  {"client":"Johnson","item":"Solar Panel","quantite":3,"action":"ajouter_devis","notes":""}
+
 - "Facture 2 heures de main d'oeuvre pour Martin" →
   {"client":"Martin","item":"main d'oeuvre","quantite":2,"action":"creer_facture","notes":""}
 
-- "Commande 10 batteries lithium pour le chantier Leblanc" →
-  {"client":"Leblanc","item":"batterie lithium","quantite":10,"action":"ajouter_commande","notes":"chantier"}
+IMPORTANT : Les mots numériques anglais doivent être convertis en chiffres (one=1, two=2, three=3, four=4, five=5).
 """
 
 # ─── Prompt de validation / enrichissement (GPT central) ─────────────────────

@@ -242,7 +242,7 @@ class JobberBot:
           - quantite         : quantité (ex: 3)
         """
         client  = data.get("client", "")
-        produit = data.get("reference_produit") or data.get("item", "Solar Panel")
+        produit = data.get("item") or data.get("reference_produit") or "Solar Panel"
         qty     = int(data.get("quantite", 1))
         logger.info(f"[Jobber] Création quote : {qty}x '{produit}' pour {client}")
 
