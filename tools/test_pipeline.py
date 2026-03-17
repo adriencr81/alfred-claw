@@ -30,13 +30,15 @@ from tools.playwright_bot import JobberBot
 SERVER_URL   = "http://127.0.0.1:8000"
 SESSION_FILE = ROOT / "storage" / "jobber_session.json"
 
-# ── Données simulant la commande Pi (id=1 dans SQLite) ────────────────────────
+# ── Données simulant la commande Pi — scénario démo HN ───────────────────────
+# Voix : "Alfred, create a quote — 3 solar panels for Johnson."
 COMMANDE_PI = {
-    "client":   "clients du pont",
-    "item":     "panneau solaire",
-    "quantite": 3.0,
-    "action":   "ajouter_devis",
-    "notes":    "",
+    "client":            "Johnson",
+    "item":              "solar panel",
+    "reference_produit": "Solar Panel",
+    "quantite":          3.0,
+    "action":            "ajouter_devis",
+    "notes":             "",
 }
 
 

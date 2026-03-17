@@ -24,6 +24,7 @@ from loguru import logger
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from json_repair import repair_json
+from tools.playwright_bot import JobberBot
 
 load_dotenv()
 
@@ -139,6 +140,32 @@ Réponds UNIQUEMENT avec du JSON pur, sans texte autour :
         logger.error(f"[Enrichir] Erreur GPT : {e}")
         # Fallback : retourne la commande non enrichie plutôt que de planter
         return CommandeEnrichie(**commande.model_dump())
+
+
+@app.post("/traiter")
+def traiter(commande: CommandeValidee) -> dict:
+    """
+    Pipeline complet : enrichissement LLM + injection Jobber via Playwright.
+    Appelé par le Raspberry Pi via SyncManager.
+    """
+    logger.info(f"[Traiter] Commande reçue : {commande.client} — {commande.item} x{commande.quantite}")
+
+    # Étape 1 : enrichissement
+    enrichie = enrichir(commande)
+
+    # Étape 2 : injection Playwright
+    try:
+        bot = JobberBot()
+        succes = bot.traiter(enrichie.model_dump())
+        if succes:
+            logger.success(f"[Traiter] ✅ Jobber mis à jour pour {commande.client}")
+            return {"status": "ok", "commande": enrichie.model_dump()}
+        else:
+            logger.error(f"[Traiter] ❌ Injection Jobber échouée")
+            raise HTTPException(status_code=500, detail="Injection Jobber échouée")
+    except Exception as e:
+        logger.error(f"[Traiter] Erreur Playwright : {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/planifier")

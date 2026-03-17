@@ -48,7 +48,6 @@ class FacturationAgent:
     def __init__(self, db: LocalDB):
         self.db = db
         self.central_url = os.getenv("CENTRAL_SERVER_URL", "http://localhost:8000")
-        self.bot = PlaywrightBot()
 
     # ── Étape 1 : Enrichissement via GPT central ─────────────────────────────
     def enrichir(self, commande: CommandeValidee) -> CommandeEnrichie:
@@ -99,23 +98,21 @@ class FacturationAgent:
     # ── Pipeline complet ──────────────────────────────────────────────────────
     def traiter(self, cmd_id: int, commande: CommandeValidee) -> bool:
         """
-        Orchestre : enrichissement + injection.
+        Envoie la commande au endpoint /traiter du PC (enrichissement + Playwright).
         Met à jour le statut en DB selon le résultat.
         """
         try:
-            enrichie = self.enrichir(commande)
-            succes = self.injecter(enrichie)
-
-            if succes:
-                self.db.marquer_synchronisee(cmd_id)
-                logger.success(f"[FacturationAgent] ✅ Commande #{cmd_id} traitée")
-            else:
-                self.db.marquer_erreur(cmd_id, "Injection échouée")
-                logger.error(f"[FacturationAgent] ❌ Injection échouée pour #{cmd_id}")
-
-            return succes
+            response = httpx.post(
+                f"{self.central_url}/traiter",
+                json=commande.model_dump(),
+                timeout=120.0,
+            )
+            response.raise_for_status()
+            self.db.marquer_synchronisee(cmd_id)
+            logger.success(f"[FacturationAgent] ✅ Commande #{cmd_id} traitée par le PC")
+            return True
 
         except Exception as e:
             self.db.marquer_erreur(cmd_id, str(e))
-            logger.exception(f"[FacturationAgent] Exception pour #{cmd_id} : {e}")
+            logger.error(f"[FacturationAgent] ❌ Erreur pour #{cmd_id} : {e}")
             return False
