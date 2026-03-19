@@ -168,6 +168,35 @@ def traiter(commande: CommandeValidee) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/bilan_journee")
+def bilan_journee(data: dict) -> dict:
+    """
+    Reçoit les activités du jour (commandes + chronos) depuis le Pi,
+    génère un résumé textuel via LLM central.
+    Utilisé comme fallback si Ollama local ne répond pas.
+    """
+    from brain.prompts import BILAN_JOURNEE_PROMPT
+    import json as _json
+    logger.info("[Bilan] Génération du bilan journée")
+    prompt = f"{BILAN_JOURNEE_PROMPT}\n\nActivités du jour :\n{_json.dumps(data, ensure_ascii=False, indent=2)}"
+    try:
+        response = client_openai.chat.completions.create(
+            model=GPT_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=300,
+        )
+        bilan = response.choices[0].message.content or "Aucune activité enregistrée."
+        logger.success(f"[Bilan] ✅ Généré : {bilan[:80]}…")
+        return {"bilan": bilan}
+    except Exception as e:
+        logger.error(f"[Bilan] Erreur LLM : {e}")
+        cmds = len(data.get("commandes", []))
+        chronos = data.get("chronos", [])
+        total_h = sum(c.get("duree_h") or 0 for c in chronos)
+        return {"bilan": f"Aujourd'hui : {cmds} commande(s), {total_h:.1f}h de chantier."}
+
+
 @app.post("/planifier")
 def planifier(intervention: Intervention) -> dict:
     """

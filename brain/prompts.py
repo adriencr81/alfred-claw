@@ -15,12 +15,15 @@ retourner UNIQUEMENT un objet JSON valide, sans texte autour.
 RÈGLES STRICTES :
 1. Réponds UNIQUEMENT avec du JSON pur. Pas de texte avant ni après.
 2. Si une information est absente, mets une chaîne vide "" ou 1 pour la quantité.
-3. Le champ "action" doit être l'un de ces valeurs exactes :
+3. Le champ "action" doit être l'une de ces valeurs exactes :
    - ajouter_devis
    - creer_facture
    - modifier_devis
    - supprimer_ligne
    - ajouter_commande
+   - debut_chantier
+   - fin_chantier
+   - bilan_journee
 
 FORMAT DE SORTIE OBLIGATOIRE :
 {
@@ -43,6 +46,24 @@ EXEMPLES :
 
 - "Facture 2 heures de main d'oeuvre pour Martin" →
   {"client":"Martin","item":"main d'oeuvre","quantite":2,"action":"creer_facture","notes":""}
+
+- "Alfred, début chantier Johnson" →
+  {"client":"Johnson","item":"","quantite":1,"action":"debut_chantier","notes":""}
+
+- "Alfred, start work for Smith" →
+  {"client":"Smith","item":"","quantite":1,"action":"debut_chantier","notes":""}
+
+- "Alfred, fin chantier" →
+  {"client":"","item":"","quantite":1,"action":"fin_chantier","notes":""}
+
+- "Alfred, stop work" →
+  {"client":"","item":"","quantite":1,"action":"fin_chantier","notes":""}
+
+- "Alfred, bilan du jour" →
+  {"client":"","item":"","quantite":1,"action":"bilan_journee","notes":""}
+
+- "Alfred, what did I do today" →
+  {"client":"","item":"","quantite":1,"action":"bilan_journee","notes":""}
 
 IMPORTANT : Les mots numériques anglais doivent être convertis en chiffres (one=1, two=2, three=3, four=4, five=5).
 """
@@ -80,4 +101,18 @@ Confirme la commande en une phrase courte et naturelle, comme si tu parlais
 à un artisan sur un chantier. Sois bref, direct, et utilise le tutoiement.
 
 Exemple : "OK, j'ai ajouté 4 panneaux solaires pour Dupont dans le devis."
+"""
+
+# ─── Prompt bilan de journée ──────────────────────────────────────────────────
+BILAN_JOURNEE_PROMPT = """
+Tu es Alfred, l'assistant vocal d'un artisan. Il te demande le bilan de sa journée.
+Tu reçois un JSON avec les commandes traitées et les chronos de chantier du jour.
+
+Génère un résumé oral court (3-6 phrases max), naturel, à la deuxième personne du singulier.
+Inclus : les chantiers avec les heures passées, les devis créés, les factures générées.
+Si aucune activité, dis-le simplement.
+
+Format attendu : texte brut, pas de markdown, pas de listes.
+Exemple : "Aujourd'hui t'as bossé 3h30 chez Johnson et 2h chez Martin. T'as créé 2 devis
+et une facture pour un total de 850€. Bonne journée !"
 """

@@ -41,6 +41,18 @@ class LocalDB:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS chronos (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client    TEXT    NOT NULL,
+                    debut_at  TEXT    NOT NULL,
+                    fin_at    TEXT,
+                    duree_h   REAL,
+                    statut    TEXT    NOT NULL DEFAULT 'en_cours'
+                )
+                """
+            )
         logger.debug(f"[LocalDB] Base initialisée : {self.db_path}")
 
     def _conn(self) -> sqlite3.Connection:
@@ -95,3 +107,69 @@ class LocalDB:
                 "SELECT statut, COUNT(*) FROM commandes GROUP BY statut"
             ).fetchall()
         return {r[0]: r[1] for r in rows}
+
+    # ── Chrono chantier ───────────────────────────────────────────────────────
+
+    def demarrer_chrono(self, client: str) -> int:
+        """Démarre un chrono pour un chantier et retourne son ID."""
+        now = datetime.utcnow().isoformat()
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO chronos (client, debut_at) VALUES (?, ?)",
+                (client, now),
+            )
+            chrono_id = cur.lastrowid
+        logger.debug(f"[LocalDB] Chrono #{chrono_id} démarré pour {client}")
+        return chrono_id
+
+    def chrono_actif(self) -> dict[str, Any] | None:
+        """Retourne le chrono en cours, ou None s'il n'y en a pas."""
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT id, client, debut_at FROM chronos WHERE statut='en_cours' ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        if row:
+            return {"id": row[0], "client": row[1], "debut_at": row[2]}
+        return None
+
+    def arreter_chrono(self) -> dict[str, Any] | None:
+        """Ferme le chrono actif, calcule la durée et retourne les infos."""
+        actif = self.chrono_actif()
+        if not actif:
+            return None
+        fin = datetime.utcnow()
+        debut = datetime.fromisoformat(actif["debut_at"])
+        duree_h = round((fin - debut).total_seconds() / 3600, 2)
+        fin_str = fin.isoformat()
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE chronos SET fin_at=?, duree_h=?, statut='termine' WHERE id=?",
+                (fin_str, duree_h, actif["id"]),
+            )
+        logger.debug(f"[LocalDB] Chrono #{actif['id']} arrêté — {duree_h}h")
+        return {**actif, "fin_at": fin_str, "duree_h": duree_h}
+
+    # ── Bilan journée ─────────────────────────────────────────────────────────
+
+    def lire_activites_aujourd_hui(self) -> dict[str, list]:
+        """Retourne les commandes et chronos du jour courant (UTC)."""
+        today = datetime.utcnow().date().isoformat()
+        with self._conn() as conn:
+            cmds = conn.execute(
+                "SELECT payload, statut, created_at FROM commandes WHERE DATE(created_at)=? ORDER BY id ASC",
+                (today,),
+            ).fetchall()
+            chronos = conn.execute(
+                "SELECT client, debut_at, fin_at, duree_h, statut FROM chronos WHERE DATE(debut_at)=? ORDER BY id ASC",
+                (today,),
+            ).fetchall()
+        return {
+            "commandes": [
+                {"payload": json.loads(r[0]), "statut": r[1], "created_at": r[2]}
+                for r in cmds
+            ],
+            "chronos": [
+                {"client": r[0], "debut_at": r[1], "fin_at": r[2], "duree_h": r[3], "statut": r[4]}
+                for r in chronos
+            ],
+        }

@@ -46,8 +46,15 @@ def main():
             texte = whisper.ecouter_et_transcrire()
             if texte.strip():
                 try:
-                    cmd_id, commande = engine.traiter(texte)
-                    logger.info(f"Commande #{cmd_id} sauvegardée : {commande}")
+                    resultat = engine.traiter(texte)
+                    type_action = resultat.get("type")
+                    message = resultat.get("message", "")
+                    if type_action == "chrono":
+                        logger.info(f"[Chrono] {message}")
+                    elif type_action == "bilan":
+                        logger.info(f"\n{'─'*60}\n{message}\n{'─'*60}")
+                    else:
+                        logger.info(f"Commande #{resultat.get('cmd_id')} sauvegardée : {resultat.get('commande')}")
                 except Exception as e:
                     logger.warning(f"Commande ignorée ({e}) — réessayez")
     except KeyboardInterrupt:
