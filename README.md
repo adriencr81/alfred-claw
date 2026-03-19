@@ -2,6 +2,8 @@
 
 > **Voice -> Local AI -> Any web app. No cloud. No API key. Raspberry Pi 5.**
 
+**[▶ Watch the demo (64s)](https://www.youtube.com/watch?v=N6O4lkWjgTE)**
+
 ---
 
 ## English
